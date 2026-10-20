@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HSK 2 TỔNG HỢP & BÀI TẬP DỊCH</title>
+    <title>HSK 2 + HSK 3 — Bản thử nghiệm</title>
     <!-- Thêm thư viện Pinyin Pro để chuyển đổi Hán tự sang Pinyin -->
     <script src="https://unpkg.com/pinyin-pro"></script>
     <!-- HanziWriter library for stroke animations -->
@@ -525,6 +525,18 @@
             .input-group { flex-direction: column; }
         }
     
+        /* Large, clear level switcher */
+        .level-switch { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:14px 0 18px; }
+        .level-choice { appearance:none; border:1.5px solid #e3e6ee; border-radius:16px; background:linear-gradient(160deg,#fff 0%,#f7f8fc 100%); color:#313849; padding:14px 8px 13px; min-height:118px; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; box-shadow:0 3px 10px rgba(22,34,60,.05); transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease; }
+        .level-choice:hover { transform:translateY(-2px); box-shadow:0 7px 18px rgba(22,34,60,.10); border-color:#c6cbe0; }
+        .level-choice:focus-visible { outline:3px solid rgba(52,91,211,.25); outline-offset:2px; }
+        .level-choice.active[data-level="2"] { color:#fff; border-color:#b94135; background:linear-gradient(145deg,#d75b4e 0%,#a92e28 100%); box-shadow:0 7px 18px rgba(169,46,40,.24); }
+        .level-choice.active[data-level="3"] { color:#fff; border-color:#3a56c4; background:linear-gradient(145deg,#6685f5 0%,#3549ae 100%); box-shadow:0 7px 18px rgba(53,73,174,.25); }
+        .level-number { font-size:12px; font-weight:800; letter-spacing:1.8px; opacity:.75; }
+        .level-name { font-size:21px; font-weight:850; line-height:1.3; letter-spacing:.2px; }
+        .level-caption { font-size:10px; line-height:1.35; opacity:.82; text-align:center; }
+        @media (max-width:760px) { .level-switch { gap:8px; } .level-choice { min-height:104px; padding:11px 5px; } .level-name { font-size:19px; } }
+
         /* Hide admin controls by default */
         .btn-delete { display: none !important; }
         .trans-actions { display: none !important; }
@@ -540,12 +552,18 @@
 <body>
     <aside class="left-panel">
         <h2>CHỌN BÀI HỌC</h2>
+        <div class="level-switch" role="group" aria-label="Chọn cấp độ HSK">
+            <button type="button" class="level-choice active" data-level="2" aria-pressed="true"><span class="level-number">02</span><span class="level-name">HSK 2</span><span class="level-caption">Ôn tập nền tảng</span></button>
+            <button type="button" class="level-choice" data-level="3" aria-pressed="false"><span class="level-number">03</span><span class="level-name">HSK 3</span><span class="level-caption">Trung cấp sơ cấp</span></button>
+        </div>
+        <p id="content-status-note" style="margin:0 0 14px;padding:10px 13px;border-radius:10px;background:#fff8e8;color:#77561b;font-size:12px;line-height:1.5">HSK3: bản tổng hợp học tập 20 bài, có từ vựng và câu ví dụ biên soạn để luyện tập. Vui lòng đối chiếu sách ở các mục cần chính xác tuyệt đối; chưa phải bản OCR nguyên văn toàn bộ sách.</p>
+        <select id="level-select" aria-label="Chọn cấp độ HSK" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap" tabindex="-1"><option value="2">HSK 2</option><option value="3">HSK 3</option></select>
         <ul class="nav-links" id="nav-list"></ul>
     </aside>
 
     <main>
         <header>
-            <h1 style="margin-top: 5px;">HSK 2 TỔNG HỢP & BÀI TẬP DỊCH</h1>
+            <h1 id="page-title" style="margin-top: 5px;">HSK 2 TỔNG HỢP & BÀI TẬP DỊCH</h1>
             <div class="search-container">
                 <input type="text" id="search-input" class="search-input" placeholder="🔍 Tìm kiếm từ vựng, mẫu câu (Hán tự, Pinyin, Tiếng Việt)...">
                 <button id="clear-search-btn" class="clear-search-btn" title="Xóa tìm kiếm">&times;</button>
@@ -588,7 +606,8 @@
                  data-context="signin"
                  data-ux_mode="popup"
                  data-callback="handleCredentialResponse"
-                 data-auto_prompt="false">
+                 data-auto_prompt="false"
+                 data-auto_select="false">
             </div>
             <div class="g_id_signin"
                  data-type="standard"
@@ -661,15 +680,51 @@
         // Trung có sẵn trên thiết bị của người dùng.
         // ============================================================
 
-        let appData = INITIAL_DATA;
+        // BẢN THỬ NGHIỆM: không ghi dữ liệu lên Google Sheets.
+        const TEST_MODE = true; // Không ghi lên Google Sheets trong bản thử nghiệm
+        let selectedLevel = 2;
+        INITIAL_DATA.forEach(lesson => { lesson.level = 2; });
+        const HSK3_SAMPLE = [{"level":3,"lesson":1,"title":"谈周末的打算 (Nói về kế hoạch cuối tuần)","vocab":[{"hanzi":"周末","pinyin":"zhōumò","vi":"cuối tuần","example":{"hanzi":"周末你有什么打算？","pinyin":"Zhōumò nǐ yǒu shénme dǎsuàn?","vi":"Cuối tuần bạn có dự định gì?"}},{"hanzi":"打算","pinyin":"dǎsuàn","vi":"dự định; kế hoạch","example":{"hanzi":"我打算去看电影。","pinyin":"Wǒ dǎsuàn qù kàn diànyǐng.","vi":"Tôi dự định đi xem phim."}},{"hanzi":"啊","pinyin":"a","vi":"trợ từ ngữ khí","example":{"hanzi":"是啊，我已经准备好了。","pinyin":"Shì a, wǒ yǐjīng zhǔnbèi hǎo le.","vi":"Đúng vậy, tôi chuẩn bị xong rồi."}},{"hanzi":"跟","pinyin":"gēn","vi":"với; cùng","example":{"hanzi":"我想跟你一起去。","pinyin":"Wǒ xiǎng gēn nǐ yìqǐ qù.","vi":"Tôi muốn đi cùng bạn."}},{"hanzi":"一直","pinyin":"yìzhí","vi":"suốt; liên tục","example":{"hanzi":"他一直在学习。","pinyin":"Tā yìzhí zài xuéxí.","vi":"Anh ấy học suốt."}},{"hanzi":"游戏","pinyin":"yóuxì","vi":"trò chơi","example":{"hanzi":"弟弟喜欢玩儿电脑游戏。","pinyin":"Dìdi xǐhuan wánr diànnǎo yóuxì.","vi":"Em trai thích chơi trò chơi máy tính."}},{"hanzi":"作业","pinyin":"zuòyè","vi":"bài tập về nhà","example":{"hanzi":"我的作业写完了。","pinyin":"Wǒ de zuòyè xiě wán le.","vi":"Bài tập của tôi làm xong rồi."}},{"hanzi":"着急","pinyin":"zháojí","vi":"lo lắng; sốt ruột","example":{"hanzi":"你别着急，慢慢说。","pinyin":"Nǐ bié zháojí, mànman shuō.","vi":"Bạn đừng lo, cứ từ từ nói."}},{"hanzi":"复习","pinyin":"fùxí","vi":"ôn tập","example":{"hanzi":"考试以前要复习。","pinyin":"Kǎoshì yǐqián yào fùxí.","vi":"Trước kỳ thi cần ôn tập."}},{"hanzi":"准备","pinyin":"zhǔnbèi","vi":"chuẩn bị","example":{"hanzi":"我准备好了。","pinyin":"Wǒ zhǔnbèi hǎo le.","vi":"Tôi chuẩn bị xong rồi."}},{"hanzi":"水果","pinyin":"shuǐguǒ","vi":"trái cây","example":{"hanzi":"桌子上有一些水果。","pinyin":"Zhuōzi shàng yǒu yìxiē shuǐguǒ.","vi":"Trên bàn có một ít trái cây."}},{"hanzi":"地图","pinyin":"dìtú","vi":"bản đồ","example":{"hanzi":"我们看一下地图吧。","pinyin":"Wǒmen kàn yíxià dìtú ba.","vi":"Chúng ta xem bản đồ nhé."}}],"translations":[{"vi":"Cuối tuần bạn có dự định gì?","zh":"周末你有什么打算？"},{"vi":"Tôi đã ôn tập xong từ lâu rồi.","zh":"我早就复习好了。"},{"vi":"Chúng tôi đi du lịch, không phải chuyển nhà.","zh":"我们是去旅游，不是搬家。"}],"contentStatus":"curated"},{"level":3,"lesson":2,"title":"一起去爬山 (Cùng đi leo núi)","vocab":[{"hanzi":"爬山","pinyin":"páshān","vi":"leo núi","example":{"hanzi":"周末我们一起去爬山吧。","pinyin":"Zhōumò wǒmen yìqǐ qù páshān ba.","vi":"Cuối tuần chúng ta cùng đi leo núi nhé."}},{"hanzi":"山","pinyin":"shān","vi":"núi","example":{"hanzi":"那座山很高。","pinyin":"Nà zuò shān hěn gāo.","vi":"Ngọn núi kia rất cao."}},{"hanzi":"累","pinyin":"lèi","vi":"mệt","example":{"hanzi":"走了两个小时，我很累。","pinyin":"Zǒu le liǎng ge xiǎoshí, wǒ hěn lèi.","vi":"Đi bộ hai tiếng, tôi rất mệt."}},{"hanzi":"休息","pinyin":"xiūxi","vi":"nghỉ ngơi","example":{"hanzi":"我们休息十分钟。","pinyin":"Wǒmen xiūxi shí fēnzhōng.","vi":"Chúng ta nghỉ mười phút."}},{"hanzi":"容易","pinyin":"róngyì","vi":"dễ dàng","example":{"hanzi":"这个问题不容易。","pinyin":"Zhège wèntí bù róngyì.","vi":"Vấn đề này không dễ."}},{"hanzi":"爬","pinyin":"pá","vi":"leo; bò","example":{"hanzi":"孩子正在爬楼梯。","pinyin":"Háizi zhèngzài pá lóutī.","vi":"Đứa trẻ đang leo cầu thang."}},{"hanzi":"终于","pinyin":"zhōngyú","vi":"cuối cùng","example":{"hanzi":"我们终于到了山顶。","pinyin":"Wǒmen zhōngyú dào le shāndǐng.","vi":"Cuối cùng chúng tôi cũng đến đỉnh núi."}},{"hanzi":"照片","pinyin":"zhàopiàn","vi":"ảnh; bức ảnh","example":{"hanzi":"我给你看照片。","pinyin":"Wǒ gěi nǐ kàn zhàopiàn.","vi":"Tôi cho bạn xem ảnh."}},{"hanzi":"照相机","pinyin":"zhàoxiàngjī","vi":"máy ảnh","example":{"hanzi":"别忘了带照相机。","pinyin":"Bié wàng le dài zhàoxiàngjī.","vi":"Đừng quên mang máy ảnh."}},{"hanzi":"腿","pinyin":"tuǐ","vi":"chân","example":{"hanzi":"我的腿有点儿疼。","pinyin":"Wǒ de tuǐ yǒudiǎnr téng.","vi":"Chân tôi hơi đau。"}}],"translations":[{"vi":"Cuối tuần chúng ta cùng đi leo núi nhé.","zh":"周末我们一起去爬山吧。"},{"vi":"Đi bộ lâu quá nên tôi hơi mệt.","zh":"走了很久，所以我有点儿累。"},{"vi":"Cuối cùng chúng tôi cũng đến đỉnh núi.","zh":"我们终于到山顶了。"}],"contentStatus":"curated"},{"level":3,"lesson":3,"title":"你去哪儿我就去哪儿 (Bạn đi đâu tôi đi đó)","vocab":[{"hanzi":"新鲜","pinyin":"xīnxiān","vi":"tươi; mới mẻ","example":{"hanzi":"这些水果很新鲜。","pinyin":"Zhèxiē shuǐguǒ hěn xīnxiān.","vi":"Những trái cây này rất tươi."}},{"hanzi":"甜","pinyin":"tián","vi":"ngọt","example":{"hanzi":"这个西瓜很甜。","pinyin":"Zhège xīguā hěn tián.","vi":"Quả dưa hấu này rất ngọt."}},{"hanzi":"条","pinyin":"tiáo","vi":"lượng từ cho vật dài","example":{"hanzi":"我买了一条裤子。","pinyin":"Wǒ mǎi le yì tiáo kùzi.","vi":"Tôi mua một chiếc quần."}},{"hanzi":"放心","pinyin":"fàngxīn","vi":"yên tâm","example":{"hanzi":"你放心，我会帮你。","pinyin":"Nǐ fàngxīn, wǒ huì bāng nǐ.","vi":"Bạn yên tâm, tôi sẽ giúp bạn."}},{"hanzi":"小心","pinyin":"xiǎoxīn","vi":"cẩn thận","example":{"hanzi":"过马路要小心。","pinyin":"Guò mǎlù yào xiǎoxīn.","vi":"Qua đường phải cẩn thận."}},{"hanzi":"校长","pinyin":"xiàozhǎng","vi":"hiệu trưởng","example":{"hanzi":"校长正在开会。","pinyin":"Xiàozhǎng zhèngzài kāihuì.","vi":"Hiệu trưởng đang họp."}},{"hanzi":"饮料","pinyin":"yǐnliào","vi":"đồ uống","example":{"hanzi":"你想喝什么饮料？","pinyin":"Nǐ xiǎng hē shénme yǐnliào?","vi":"Bạn muốn uống gì?"}},{"hanzi":"元","pinyin":"yuán","vi":"đồng; đơn vị tiền tệ","example":{"hanzi":"这本书三十元。","pinyin":"Zhè běn shū sānshí yuán.","vi":"Quyển sách này 30 tệ."}},{"hanzi":"又","pinyin":"yòu","vi":"lại; vừa","example":{"hanzi":"他今天又迟到了。","pinyin":"Tā jīntiān yòu chídào le.","vi":"Hôm nay anh ấy lại đến muộn."}},{"hanzi":"越","pinyin":"yuè","vi":"càng","example":{"hanzi":"天气越来越冷了。","pinyin":"Tiānqì yuèláiyuè lěng le.","vi":"Thời tiết càng ngày càng lạnh."}}],"translations":[{"vi":"Bạn đi đâu tôi sẽ đi đó.","zh":"你去哪儿我就去哪儿。"},{"vi":"Những trái cây này rất tươi và ngọt.","zh":"这些水果很新鲜，也很甜。"},{"vi":"Bạn cứ yên tâm, tôi sẽ giúp bạn.","zh":"你放心，我会帮你的。"}],"contentStatus":"curated"},{"level":3,"lesson":4,"title":"你看过那个电影吗 (Bạn đã xem bộ phim đó chưa)","vocab":[{"hanzi":"看过","pinyin":"kànguo","vi":"đã từng xem","example":{"hanzi":"你看过这部电影吗？","pinyin":"Nǐ kànguo zhè bù diànyǐng ma?","vi":"Bạn đã xem bộ phim này chưa?"}},{"hanzi":"电影","pinyin":"diànyǐng","vi":"phim điện ảnh","example":{"hanzi":"我们晚上去看电影。","pinyin":"Wǒmen wǎnshang qù kàn diànyǐng.","vi":"Tối nay chúng ta đi xem phim."}},{"hanzi":"当然","pinyin":"dāngrán","vi":"đương nhiên","example":{"hanzi":"当然可以。","pinyin":"Dāngrán kěyǐ.","vi":"Đương nhiên là được."}},{"hanzi":"有名","pinyin":"yǒumíng","vi":"nổi tiếng","example":{"hanzi":"这家饭馆很有名。","pinyin":"Zhè jiā fànguǎn hěn yǒumíng.","vi":"Nhà hàng này rất nổi tiếng."}},{"hanzi":"地方","pinyin":"dìfang","vi":"địa phương; nơi","example":{"hanzi":"这个地方很安静。","pinyin":"Zhège dìfang hěn ānjìng.","vi":"Nơi này rất yên tĩnh."}},{"hanzi":"影响","pinyin":"yǐngxiǎng","vi":"ảnh hưởng","example":{"hanzi":"天气会影响我们的计划。","pinyin":"Tiānqì huì yǐngxiǎng wǒmen de jìhuà.","vi":"Thời tiết sẽ ảnh hưởng đến kế hoạch của chúng ta."}},{"hanzi":"总是","pinyin":"zǒngshì","vi":"luôn luôn","example":{"hanzi":"他总是很早起床。","pinyin":"Tā zǒngshì hěn zǎo qǐchuáng.","vi":"Anh ấy luôn thức dậy sớm."}},{"hanzi":"最近","pinyin":"zuìjìn","vi":"gần đây","example":{"hanzi":"我最近很忙。","pinyin":"Wǒ zuìjìn hěn máng.","vi":"Gần đây tôi rất bận."}},{"hanzi":"特别","pinyin":"tèbié","vi":"đặc biệt; rất","example":{"hanzi":"这部电影特别有意思。","pinyin":"Zhè bù diànyǐng tèbié yǒu yìsi.","vi":"Bộ phim này đặc biệt thú vị."}},{"hanzi":"习惯","pinyin":"xíguàn","vi":"thói quen; quen","example":{"hanzi":"我习惯早上喝茶。","pinyin":"Wǒ xíguàn zǎoshang hē chá.","vi":"Tôi quen uống trà buổi sáng."}}],"translations":[{"vi":"Bạn đã xem bộ phim đó chưa?","zh":"你看过那个电影吗？"},{"vi":"Gần đây tôi rất bận.","zh":"我最近很忙。"},{"vi":"Bộ phim này rất nổi tiếng.","zh":"这部电影很有名。"}],"contentStatus":"curated"},{"level":3,"lesson":5,"title":"我最近越来越胖了 (Gần đây tôi ngày càng béo)","vocab":[{"hanzi":"越来越","pinyin":"yuèláiyuè","vi":"ngày càng","example":{"hanzi":"天气越来越热了。","pinyin":"Tiānqì yuèláiyuè rè le.","vi":"Thời tiết ngày càng nóng."}},{"hanzi":"胖","pinyin":"pàng","vi":"béo; mập","example":{"hanzi":"他比以前胖了。","pinyin":"Tā bǐ yǐqián pàng le.","vi":"Anh ấy béo hơn trước."}},{"hanzi":"瘦","pinyin":"shòu","vi":"gầy","example":{"hanzi":"她最近瘦了一点儿。","pinyin":"Tā zuìjìn shòu le yìdiǎnr.","vi":"Gần đây cô ấy gầy đi một chút."}},{"hanzi":"运动","pinyin":"yùndòng","vi":"vận động; thể thao","example":{"hanzi":"我每天运动半个小时。","pinyin":"Wǒ měitiān yùndòng bàn ge xiǎoshí.","vi":"Tôi vận động nửa tiếng mỗi ngày."}},{"hanzi":"健康","pinyin":"jiànkāng","vi":"sức khỏe; khỏe mạnh","example":{"hanzi":"身体健康很重要。","pinyin":"Shēntǐ jiànkāng hěn zhòngyào.","vi":"Sức khỏe rất quan trọng."}},{"hanzi":"跑步","pinyin":"pǎobù","vi":"chạy bộ","example":{"hanzi":"我每天早上跑步。","pinyin":"Wǒ měitiān zǎoshang pǎobù.","vi":"Tôi chạy bộ mỗi sáng."}},{"hanzi":"需要","pinyin":"xūyào","vi":"cần","example":{"hanzi":"你需要多休息。","pinyin":"Nǐ xūyào duō xiūxi.","vi":"Bạn cần nghỉ ngơi nhiều hơn."}},{"hanzi":"注意","pinyin":"zhùyì","vi":"chú ý","example":{"hanzi":"要注意身体。","pinyin":"Yào zhùyì shēntǐ.","vi":"Phải chú ý sức khỏe."}},{"hanzi":"舒服","pinyin":"shūfu","vi":"thoải mái; dễ chịu","example":{"hanzi":"这里很舒服。","pinyin":"Zhèlǐ hěn shūfu.","vi":"Ở đây rất thoải mái."}},{"hanzi":"应该","pinyin":"yīnggāi","vi":"nên; cần phải","example":{"hanzi":"你应该早点儿睡觉。","pinyin":"Nǐ yīnggāi zǎodiǎnr shuìjiào.","vi":"Bạn nên ngủ sớm hơn."}}],"translations":[{"vi":"Gần đây tôi ngày càng bận.","zh":"我最近越来越忙了。"},{"vi":"Bạn nên chú ý sức khỏe.","zh":"你应该注意身体。"},{"vi":"Tôi chạy bộ mỗi sáng.","zh":"我每天早上跑步。"}],"contentStatus":"curated"},{"level":3,"lesson":6,"title":"怎么突然找不到了 (Sao đột nhiên tìm không thấy)","vocab":[{"hanzi":"突然","pinyin":"tūrán","vi":"đột nhiên","example":{"hanzi":"他突然不说话了。","pinyin":"Tā tūrán bù shuōhuà le.","vi":"Anh ấy đột nhiên không nói nữa."}},{"hanzi":"找","pinyin":"zhǎo","vi":"tìm","example":{"hanzi":"我在找我的手机。","pinyin":"Wǒ zài zhǎo wǒ de shǒujī.","vi":"Tôi đang tìm điện thoại."}},{"hanzi":"发现","pinyin":"fāxiàn","vi":"phát hiện","example":{"hanzi":"我发现一个问题。","pinyin":"Wǒ fāxiàn yí ge wèntí.","vi":"Tôi phát hiện một vấn đề."}},{"hanzi":"可能","pinyin":"kěnéng","vi":"có thể; có lẽ","example":{"hanzi":"他可能在家。","pinyin":"Tā kěnéng zài jiā.","vi":"Có lẽ anh ấy ở nhà."}},{"hanzi":"忘记","pinyin":"wàngjì","vi":"quên","example":{"hanzi":"我忘记带钥匙了。","pinyin":"Wǒ wàngjì dài yàoshi le.","vi":"Tôi quên mang chìa khóa rồi."}},{"hanzi":"放","pinyin":"fàng","vi":"đặt; để","example":{"hanzi":"我把书放在桌子上。","pinyin":"Wǒ bǎ shū fàng zài zhuōzi shàng.","vi":"Tôi đặt sách lên bàn."}},{"hanzi":"地方","pinyin":"dìfang","vi":"chỗ; nơi","example":{"hanzi":"你把它放在哪个地方了？","pinyin":"Nǐ bǎ tā fàng zài nǎge dìfang le?","vi":"Bạn đã để nó ở chỗ nào?"}},{"hanzi":"记得","pinyin":"jìde","vi":"nhớ","example":{"hanzi":"我记得他的名字。","pinyin":"Wǒ jìde tā de míngzi.","vi":"Tôi nhớ tên anh ấy."}},{"hanzi":"手机","pinyin":"shǒujī","vi":"điện thoại di động","example":{"hanzi":"我的手机不见了。","pinyin":"Wǒ de shǒujī bú jiàn le.","vi":"Điện thoại của tôi biến mất rồi."}},{"hanzi":"着","pinyin":"zhe","vi":"trợ từ chỉ trạng thái tiếp diễn","example":{"hanzi":"门开着。","pinyin":"Mén kāi zhe.","vi":"Cửa đang mở."}}],"translations":[{"vi":"Tôi đột nhiên không tìm thấy điện thoại.","zh":"我突然找不到手机了。"},{"vi":"Bạn có nhớ đã để chìa khóa ở đâu không?","zh":"你记得把钥匙放在哪儿了吗？"},{"vi":"Tôi quên mang sách rồi.","zh":"我忘记带书了。"}],"contentStatus":"curated"},{"level":3,"lesson":7,"title":"我跟她都认识五年了 (Tôi và cô ấy đều quen nhau năm năm rồi)","vocab":[{"hanzi":"认识","pinyin":"rènshi","vi":"quen biết","example":{"hanzi":"我认识她五年了。","pinyin":"Wǒ rènshi tā wǔ nián le.","vi":"Tôi quen cô ấy năm năm rồi."}},{"hanzi":"以前","pinyin":"yǐqián","vi":"trước đây","example":{"hanzi":"我以前住在北京。","pinyin":"Wǒ yǐqián zhù zài Běijīng.","vi":"Trước đây tôi sống ở Bắc Kinh."}},{"hanzi":"同事","pinyin":"tóngshì","vi":"đồng nghiệp","example":{"hanzi":"他是我的同事。","pinyin":"Tā shì wǒ de tóngshì.","vi":"Anh ấy là đồng nghiệp của tôi."}},{"hanzi":"公司","pinyin":"gōngsī","vi":"công ty","example":{"hanzi":"我在一家中国公司工作。","pinyin":"Wǒ zài yì jiā Zhōngguó gōngsī gōngzuò.","vi":"Tôi làm việc ở một công ty Trung Quốc."}},{"hanzi":"搬","pinyin":"bān","vi":"chuyển; dọn","example":{"hanzi":"我们下个月搬家。","pinyin":"Wǒmen xià ge yuè bānjiā.","vi":"Tháng sau chúng tôi chuyển nhà."}},{"hanzi":"离开","pinyin":"líkāi","vi":"rời khỏi","example":{"hanzi":"他明天离开北京。","pinyin":"Tā míngtiān líkāi Běijīng.","vi":"Ngày mai anh ấy rời Bắc Kinh."}},{"hanzi":"一直","pinyin":"yìzhí","vi":"suốt; luôn","example":{"hanzi":"我们一直是好朋友。","pinyin":"Wǒmen yìzhí shì hǎo péngyou.","vi":"Chúng tôi luôn là bạn tốt."}},{"hanzi":"终于","pinyin":"zhōngyú","vi":"cuối cùng","example":{"hanzi":"他终于找到工作了。","pinyin":"Tā zhōngyú zhǎodào gōngzuò le.","vi":"Cuối cùng anh ấy cũng tìm được việc."}},{"hanzi":"关系","pinyin":"guānxi","vi":"quan hệ","example":{"hanzi":"我们关系很好。","pinyin":"Wǒmen guānxi hěn hǎo.","vi":"Quan hệ của chúng tôi rất tốt。"}}],"translations":[{"vi":"Tôi quen cô ấy được năm năm rồi.","zh":"我跟她认识五年了。"},{"vi":"Anh ấy là đồng nghiệp của tôi.","zh":"他是我的同事。"},{"vi":"Tháng sau chúng tôi chuyển nhà.","zh":"我们下个月搬家。"}],"contentStatus":"curated"},{"level":3,"lesson":8,"title":"你要茶还是咖啡 (Bạn muốn trà hay cà phê)","vocab":[{"hanzi":"还是","pinyin":"háishi","vi":"hay là (câu hỏi lựa chọn)","example":{"hanzi":"你喝茶还是咖啡？","pinyin":"Nǐ hē chá háishi kāfēi?","vi":"Bạn uống trà hay cà phê?"}},{"hanzi":"或者","pinyin":"huòzhě","vi":"hoặc","example":{"hanzi":"周末我在家或者去图书馆。","pinyin":"Zhōumò wǒ zài jiā huòzhě qù túshūguǎn.","vi":"Cuối tuần tôi ở nhà hoặc đi thư viện."}},{"hanzi":"咖啡","pinyin":"kāfēi","vi":"cà phê","example":{"hanzi":"我每天喝一杯咖啡。","pinyin":"Wǒ měitiān hē yì bēi kāfēi.","vi":"Tôi uống một tách cà phê mỗi ngày."}},{"hanzi":"茶","pinyin":"chá","vi":"trà","example":{"hanzi":"请给我一杯茶。","pinyin":"Qǐng gěi wǒ yì bēi chá.","vi":"Cho tôi một tách trà."}},{"hanzi":"习惯","pinyin":"xíguàn","vi":"thói quen; quen","example":{"hanzi":"我不习惯喝冷水。","pinyin":"Wǒ bù xíguàn hē lěng shuǐ.","vi":"Tôi không quen uống nước lạnh."}},{"hanzi":"甜","pinyin":"tián","vi":"ngọt","example":{"hanzi":"我不喜欢太甜的饮料。","pinyin":"Wǒ bù xǐhuan tài tián de yǐnliào.","vi":"Tôi không thích đồ uống quá ngọt."}},{"hanzi":"杯子","pinyin":"bēizi","vi":"cốc; ly","example":{"hanzi":"桌上有两个杯子。","pinyin":"Zhuō shàng yǒu liǎng ge bēizi.","vi":"Trên bàn có hai cái cốc."}},{"hanzi":"需要","pinyin":"xūyào","vi":"cần","example":{"hanzi":"你还需要什么？","pinyin":"Nǐ hái xūyào shénme?","vi":"Bạn còn cần gì nữa?"}},{"hanzi":"当然","pinyin":"dāngrán","vi":"đương nhiên","example":{"hanzi":"当然可以。","pinyin":"Dāngrán kěyǐ.","vi":"Đương nhiên được."}},{"hanzi":"决定","pinyin":"juédìng","vi":"quyết định","example":{"hanzi":"你决定好了吗？","pinyin":"Nǐ juédìng hǎo le ma?","vi":"Bạn quyết định xong chưa?"}}],"translations":[{"vi":"Bạn muốn trà hay cà phê?","zh":"你要茶还是咖啡？"},{"vi":"Tôi không thích đồ uống quá ngọt.","zh":"我不喜欢太甜的饮料。"},{"vi":"Bạn đã quyết định xong chưa?","zh":"你决定好了吗？"}],"contentStatus":"curated"},{"level":3,"lesson":9,"title":"谁吃得多 (Ai ăn nhiều hơn)","vocab":[{"hanzi":"吃得多","pinyin":"chī de duō","vi":"ăn nhiều","example":{"hanzi":"他吃得比我多。","pinyin":"Tā chī de bǐ wǒ duō.","vi":"Anh ấy ăn nhiều hơn tôi."}},{"hanzi":"认真","pinyin":"rènzhēn","vi":"nghiêm túc; chăm chú","example":{"hanzi":"她学习很认真。","pinyin":"Tā xuéxí hěn rènzhēn.","vi":"Cô ấy học rất chăm chỉ."}},{"hanzi":"比赛","pinyin":"bǐsài","vi":"cuộc thi; thi đấu","example":{"hanzi":"明天我们有比赛。","pinyin":"Míngtiān wǒmen yǒu bǐsài.","vi":"Ngày mai chúng tôi có cuộc thi."}},{"hanzi":"努力","pinyin":"nǔlì","vi":"nỗ lực; cố gắng","example":{"hanzi":"只要努力，就会进步。","pinyin":"Zhǐyào nǔlì, jiù huì jìnbù.","vi":"Chỉ cần nỗ lực thì sẽ tiến bộ."}},{"hanzi":"成绩","pinyin":"chéngjì","vi":"thành tích; điểm số","example":{"hanzi":"他的成绩很好。","pinyin":"Tā de chéngjì hěn hǎo.","vi":"Điểm số của anh ấy rất tốt."}},{"hanzi":"提高","pinyin":"tígāo","vi":"nâng cao; cải thiện","example":{"hanzi":"我想提高汉语水平。","pinyin":"Wǒ xiǎng tígāo Hànyǔ shuǐpíng.","vi":"Tôi muốn nâng cao trình độ tiếng Trung."}},{"hanzi":"水平","pinyin":"shuǐpíng","vi":"trình độ","example":{"hanzi":"她的汉语水平很高。","pinyin":"Tā de Hànyǔ shuǐpíng hěn gāo.","vi":"Trình độ tiếng Trung của cô ấy rất cao."}},{"hanzi":"比较","pinyin":"bǐjiào","vi":"khá; tương đối; so sánh","example":{"hanzi":"今天比较冷。","pinyin":"Jīntiān bǐjiào lěng.","vi":"Hôm nay khá lạnh."}},{"hanzi":"一样","pinyin":"yíyàng","vi":"giống nhau","example":{"hanzi":"我们的想法一样。","pinyin":"Wǒmen de xiǎngfǎ yíyàng.","vi":"Suy nghĩ của chúng tôi giống nhau."}}],"translations":[{"vi":"Anh ấy ăn nhiều hơn tôi.","zh":"他吃得比我多。"},{"vi":"Tôi muốn nâng cao trình độ tiếng Trung.","zh":"我想提高汉语水平。"},{"vi":"Điểm số của cô ấy rất tốt.","zh":"她的成绩很好。"}],"contentStatus":"curated"},{"level":3,"lesson":10,"title":"你最好早点儿来 (Tốt nhất bạn nên đến sớm một chút)","vocab":[{"hanzi":"最好","pinyin":"zuìhǎo","vi":"tốt nhất nên","example":{"hanzi":"你最好早点儿来。","pinyin":"Nǐ zuìhǎo zǎodiǎnr lái.","vi":"Tốt nhất bạn nên đến sớm."}},{"hanzi":"迟到","pinyin":"chídào","vi":"đến muộn","example":{"hanzi":"上课不要迟到。","pinyin":"Shàngkè bú yào chídào.","vi":"Đi học đừng đến muộn."}},{"hanzi":"准时","pinyin":"zhǔnshí","vi":"đúng giờ","example":{"hanzi":"请准时到。","pinyin":"Qǐng zhǔnshí dào.","vi":"Vui lòng đến đúng giờ."}},{"hanzi":"会议","pinyin":"huìyì","vi":"cuộc họp","example":{"hanzi":"下午有一个会议。","pinyin":"Xiàwǔ yǒu yí ge huìyì.","vi":"Buổi chiều có một cuộc họp."}},{"hanzi":"完成","pinyin":"wánchéng","vi":"hoàn thành","example":{"hanzi":"我完成了今天的工作。","pinyin":"Wǒ wánchéng le jīntiān de gōngzuò.","vi":"Tôi đã hoàn thành công việc hôm nay."}},{"hanzi":"马上","pinyin":"mǎshàng","vi":"ngay lập tức","example":{"hanzi":"我马上就来。","pinyin":"Wǒ mǎshàng jiù lái.","vi":"Tôi đến ngay."}},{"hanzi":"先","pinyin":"xiān","vi":"trước tiên","example":{"hanzi":"你先坐一下。","pinyin":"Nǐ xiān zuò yíxià.","vi":"Bạn ngồi trước một lát."}},{"hanzi":"中间","pinyin":"zhōngjiān","vi":"ở giữa","example":{"hanzi":"我坐在他们中间。","pinyin":"Wǒ zuò zài tāmen zhōngjiān.","vi":"Tôi ngồi giữa họ."}},{"hanzi":"最后","pinyin":"zuìhòu","vi":"cuối cùng","example":{"hanzi":"最后一个问题很难。","pinyin":"Zuìhòu yí ge wèntí hěn nán.","vi":"Câu hỏi cuối cùng rất khó."}},{"hanzi":"重要","pinyin":"zhòngyào","vi":"quan trọng","example":{"hanzi":"准时很重要。","pinyin":"Zhǔnshí hěn zhòngyào.","vi":"Đúng giờ rất quan trọng."}}],"translations":[{"vi":"Tốt nhất bạn nên đến sớm một chút.","zh":"你最好早点儿来。"},{"vi":"Tôi sẽ đến ngay.","zh":"我马上就来。"},{"vi":"Đúng giờ rất quan trọng.","zh":"准时很重要。"}],"contentStatus":"curated"},{"level":3,"lesson":11,"title":"还是药店比较好 (Hay là hiệu thuốc tốt hơn)","vocab":[{"hanzi":"药店","pinyin":"yàodiàn","vi":"hiệu thuốc","example":{"hanzi":"附近有药店吗？","pinyin":"Fùjìn yǒu yàodiàn ma?","vi":"Gần đây có hiệu thuốc không?"}},{"hanzi":"药","pinyin":"yào","vi":"thuốc","example":{"hanzi":"你吃药了吗？","pinyin":"Nǐ chī yào le ma?","vi":"Bạn uống thuốc chưa?"}},{"hanzi":"医院","pinyin":"yīyuàn","vi":"bệnh viện","example":{"hanzi":"医院离这儿不远。","pinyin":"Yīyuàn lí zhèr bù yuǎn.","vi":"Bệnh viện cách đây không xa."}},{"hanzi":"附近","pinyin":"fùjìn","vi":"gần đây; lân cận","example":{"hanzi":"我家附近有一个公园。","pinyin":"Wǒ jiā fùjìn yǒu yí ge gōngyuán.","vi":"Gần nhà tôi có một công viên."}},{"hanzi":"比较","pinyin":"bǐjiào","vi":"khá; tương đối","example":{"hanzi":"这个办法比较好。","pinyin":"Zhège bànfǎ bǐjiào hǎo.","vi":"Cách này tương đối tốt."}},{"hanzi":"疼","pinyin":"téng","vi":"đau","example":{"hanzi":"我的头有点儿疼。","pinyin":"Wǒ de tóu yǒudiǎnr téng.","vi":"Đầu tôi hơi đau."}},{"hanzi":"舒服","pinyin":"shūfu","vi":"dễ chịu","example":{"hanzi":"休息以后舒服多了。","pinyin":"Xiūxi yǐhòu shūfu duō le.","vi":"Nghỉ ngơi xong thấy dễ chịu hơn nhiều."}},{"hanzi":"照顾","pinyin":"zhàogu","vi":"chăm sóc","example":{"hanzi":"请照顾好自己。","pinyin":"Qǐng zhàogu hǎo zìjǐ.","vi":"Hãy chăm sóc bản thân."}},{"hanzi":"需要","pinyin":"xūyào","vi":"cần","example":{"hanzi":"你需要看医生。","pinyin":"Nǐ xūyào kàn yīshēng.","vi":"Bạn cần đi khám bác sĩ."}},{"hanzi":"当然","pinyin":"dāngrán","vi":"đương nhiên","example":{"hanzi":"当然要注意休息。","pinyin":"Dāngrán yào zhùyì xiūxi.","vi":"Đương nhiên phải chú ý nghỉ ngơi."}}],"translations":[{"vi":"Gần đây có hiệu thuốc không?","zh":"附近有药店吗？"},{"vi":"Đầu tôi hơi đau.","zh":"我的头有点儿疼。"},{"vi":"Bạn cần chăm sóc tốt bản thân.","zh":"你需要照顾好自己。"}],"contentStatus":"curated"},{"level":3,"lesson":12,"title":"把重要的东西放在我这儿吧 (Để đồ quan trọng ở chỗ tôi nhé)","vocab":[{"hanzi":"重要","pinyin":"zhòngyào","vi":"quan trọng","example":{"hanzi":"护照是很重要的东西。","pinyin":"Hùzhào shì hěn zhòngyào de dōngxi.","vi":"Hộ chiếu là thứ rất quan trọng."}},{"hanzi":"东西","pinyin":"dōngxi","vi":"đồ vật; thứ","example":{"hanzi":"你的东西在桌子上。","pinyin":"Nǐ de dōngxi zài zhuōzi shàng.","vi":"Đồ của bạn ở trên bàn."}},{"hanzi":"放","pinyin":"fàng","vi":"đặt; để","example":{"hanzi":"请把书放在这里。","pinyin":"Qǐng bǎ shū fàng zài zhèlǐ.","vi":"Hãy đặt sách ở đây."}},{"hanzi":"护照","pinyin":"hùzhào","vi":"hộ chiếu","example":{"hanzi":"出国要带护照。","pinyin":"Chūguó yào dài hùzhào.","vi":"Ra nước ngoài cần mang hộ chiếu."}},{"hanzi":"行李箱","pinyin":"xínglixiāng","vi":"vali; hành lý","example":{"hanzi":"我的行李箱很重。","pinyin":"Wǒ de xínglixiāng hěn zhòng.","vi":"Vali của tôi rất nặng."}},{"hanzi":"自己","pinyin":"zìjǐ","vi":"bản thân; tự mình","example":{"hanzi":"我自己来。","pinyin":"Wǒ zìjǐ lái.","vi":"Để tôi tự làm."}},{"hanzi":"放心","pinyin":"fàngxīn","vi":"yên tâm","example":{"hanzi":"把东西放我这儿，你放心吧。","pinyin":"Bǎ dōngxi fàng wǒ zhèr, nǐ fàngxīn ba.","vi":"Cứ để đồ ở chỗ tôi, bạn yên tâm nhé."}},{"hanzi":"记得","pinyin":"jìde","vi":"nhớ","example":{"hanzi":"记得带护照。","pinyin":"Jìde dài hùzhào.","vi":"Nhớ mang hộ chiếu."}},{"hanzi":"需要","pinyin":"xūyào","vi":"cần","example":{"hanzi":"你需要帮忙吗？","pinyin":"Nǐ xūyào bāngmáng ma?","vi":"Bạn có cần giúp đỡ không?"}},{"hanzi":"安全","pinyin":"ānquán","vi":"an toàn","example":{"hanzi":"这里很安全。","pinyin":"Zhèlǐ hěn ānquán.","vi":"Nơi này rất an toàn."}}],"translations":[{"vi":"Hãy để đồ quan trọng ở chỗ tôi nhé.","zh":"把重要的东西放在我这儿吧。"},{"vi":"Nhớ mang hộ chiếu.","zh":"记得带护照。"},{"vi":"Vali của tôi rất nặng.","zh":"我的行李箱很重。"}],"contentStatus":"curated"},{"level":3,"lesson":13,"title":"你把水果拿过来 (Bạn mang trái cây qua đây)","vocab":[{"hanzi":"拿","pinyin":"ná","vi":"cầm; lấy; mang","example":{"hanzi":"请把书拿过来。","pinyin":"Qǐng bǎ shū ná guòlái.","vi":"Hãy mang quyển sách qua đây."}},{"hanzi":"过来","pinyin":"guòlái","vi":"qua đây","example":{"hanzi":"你过来一下。","pinyin":"Nǐ guòlái yíxià.","vi":"Bạn qua đây một chút."}},{"hanzi":"拿走","pinyin":"názǒu","vi":"mang đi","example":{"hanzi":"你可以把它拿走。","pinyin":"Nǐ kěyǐ bǎ tā názǒu.","vi":"Bạn có thể mang nó đi."}},{"hanzi":"水果","pinyin":"shuǐguǒ","vi":"trái cây","example":{"hanzi":"我买了很多水果。","pinyin":"Wǒ mǎi le hěn duō shuǐguǒ.","vi":"Tôi mua rất nhiều trái cây."}},{"hanzi":"苹果","pinyin":"píngguǒ","vi":"táo","example":{"hanzi":"我每天吃一个苹果。","pinyin":"Wǒ měitiān chī yí ge píngguǒ.","vi":"Mỗi ngày tôi ăn một quả táo."}},{"hanzi":"香蕉","pinyin":"xiāngjiāo","vi":"chuối","example":{"hanzi":"桌子上有香蕉。","pinyin":"Zhuōzi shàng yǒu xiāngjiāo.","vi":"Trên bàn có chuối."}},{"hanzi":"需要","pinyin":"xūyào","vi":"cần","example":{"hanzi":"你需要我帮你拿吗？","pinyin":"Nǐ xūyào wǒ bāng nǐ ná ma?","vi":"Bạn có cần tôi giúp mang không?"}},{"hanzi":"给","pinyin":"gěi","vi":"đưa; cho","example":{"hanzi":"请给我那个杯子。","pinyin":"Qǐng gěi wǒ nà ge bēizi.","vi":"Hãy đưa tôi cái cốc kia."}},{"hanzi":"一下","pinyin":"yíxià","vi":"một chút; thử","example":{"hanzi":"你看一下这个。","pinyin":"Nǐ kàn yíxià zhège.","vi":"Bạn xem cái này một chút."}},{"hanzi":"别","pinyin":"bié","vi":"đừng","example":{"hanzi":"别忘了带水果。","pinyin":"Bié wàng le dài shuǐguǒ.","vi":"Đừng quên mang trái cây."}}],"translations":[{"vi":"Bạn mang trái cây qua đây nhé.","zh":"你把水果拿过来。"},{"vi":"Hãy đưa tôi cái cốc kia.","zh":"请把那个杯子给我。"},{"vi":"Bạn xem cái này một chút nhé.","zh":"你看一下这个吧。"}],"contentStatus":"curated"},{"level":3,"lesson":14,"title":"你怎么了 (Bạn làm sao vậy)","vocab":[{"hanzi":"怎么了","pinyin":"zěnme le","vi":"làm sao vậy","example":{"hanzi":"你怎么了？","pinyin":"Nǐ zěnme le?","vi":"Bạn làm sao vậy?"}},{"hanzi":"发烧","pinyin":"fāshāo","vi":"sốt","example":{"hanzi":"我昨天晚上发烧了。","pinyin":"Wǒ zuótiān wǎnshang fāshāo le.","vi":"Tối qua tôi bị sốt."}},{"hanzi":"感冒","pinyin":"gǎnmào","vi":"cảm lạnh","example":{"hanzi":"他感冒了。","pinyin":"Tā gǎnmào le.","vi":"Anh ấy bị cảm."}},{"hanzi":"头疼","pinyin":"tóuténg","vi":"đau đầu","example":{"hanzi":"我有点儿头疼。","pinyin":"Wǒ yǒudiǎnr tóuténg.","vi":"Tôi hơi đau đầu."}},{"hanzi":"休息","pinyin":"xiūxi","vi":"nghỉ ngơi","example":{"hanzi":"你应该多休息。","pinyin":"Nǐ yīnggāi duō xiūxi.","vi":"Bạn nên nghỉ ngơi nhiều."}},{"hanzi":"检查","pinyin":"jiǎnchá","vi":"kiểm tra; khám","example":{"hanzi":"医生给我检查了身体。","pinyin":"Yīshēng gěi wǒ jiǎnchá le shēntǐ.","vi":"Bác sĩ đã kiểm tra sức khỏe cho tôi."}},{"hanzi":"严重","pinyin":"yánzhòng","vi":"nghiêm trọng","example":{"hanzi":"问题不严重。","pinyin":"Wèntí bù yánzhòng.","vi":"Vấn đề không nghiêm trọng."}},{"hanzi":"舒服","pinyin":"shūfu","vi":"dễ chịu","example":{"hanzi":"今天我觉得不太舒服。","pinyin":"Jīntiān wǒ juéde bú tài shūfu.","vi":"Hôm nay tôi thấy không khỏe lắm."}},{"hanzi":"药","pinyin":"yào","vi":"thuốc","example":{"hanzi":"吃了药以后好多了。","pinyin":"Chī le yào yǐhòu hǎo duō le.","vi":"Uống thuốc xong đỡ hơn nhiều."}},{"hanzi":"照顾","pinyin":"zhàogu","vi":"chăm sóc","example":{"hanzi":"妈妈照顾我。","pinyin":"Māma zhàogu wǒ.","vi":"Mẹ chăm sóc tôi."}}],"translations":[{"vi":"Bạn làm sao vậy?","zh":"你怎么了？"},{"vi":"Tôi hơi đau đầu và bị cảm.","zh":"我有点儿头疼，也感冒了。"},{"vi":"Bạn nên nghỉ ngơi nhiều hơn.","zh":"你应该多休息。"}],"contentStatus":"curated"},{"level":3,"lesson":15,"title":"你知道怎么走吗 (Bạn biết đi đường nào không)","vocab":[{"hanzi":"怎么走","pinyin":"zěnme zǒu","vi":"đi như thế nào","example":{"hanzi":"请问，去火车站怎么走？","pinyin":"Qǐngwèn, qù huǒchēzhàn zěnme zǒu?","vi":"Xin hỏi đi ga tàu hỏa như thế nào?"}},{"hanzi":"一直","pinyin":"yìzhí","vi":"đi thẳng; suốt","example":{"hanzi":"一直往前走。","pinyin":"Yìzhí wǎng qián zǒu.","vi":"Đi thẳng về phía trước."}},{"hanzi":"拐弯","pinyin":"guǎiwān","vi":"rẽ","example":{"hanzi":"到前面再拐弯。","pinyin":"Dào qiánmiàn zài guǎiwān.","vi":"Đến phía trước rồi rẽ."}},{"hanzi":"路口","pinyin":"lùkǒu","vi":"ngã đường; giao lộ","example":{"hanzi":"在第二个路口左拐。","pinyin":"Zài dì èr ge lùkǒu zuǒ guǎi.","vi":"Rẽ trái ở giao lộ thứ hai."}},{"hanzi":"附近","pinyin":"fùjìn","vi":"gần đây","example":{"hanzi":"银行就在附近。","pinyin":"Yínháng jiù zài fùjìn.","vi":"Ngân hàng ở ngay gần đây."}},{"hanzi":"地图","pinyin":"dìtú","vi":"bản đồ","example":{"hanzi":"我们看地图吧。","pinyin":"Wǒmen kàn dìtú ba.","vi":"Chúng ta xem bản đồ nhé."}},{"hanzi":"东","pinyin":"dōng","vi":"phía đông","example":{"hanzi":"学校在车站东边。","pinyin":"Xuéxiào zài chēzhàn dōngbian.","vi":"Trường học ở phía đông nhà ga."}},{"hanzi":"西","pinyin":"xī","vi":"phía tây","example":{"hanzi":"医院在路的西边。","pinyin":"Yīyuàn zài lù de xībian.","vi":"Bệnh viện ở phía tây con đường."}},{"hanzi":"离","pinyin":"lí","vi":"cách","example":{"hanzi":"我家离公司很近。","pinyin":"Wǒ jiā lí gōngsī hěn jìn.","vi":"Nhà tôi cách công ty rất gần."}},{"hanzi":"远","pinyin":"yuǎn","vi":"xa","example":{"hanzi":"这里离机场很远。","pinyin":"Zhèlǐ lí jīchǎng hěn yuǎn.","vi":"Nơi này cách sân bay rất xa."}}],"translations":[{"vi":"Xin hỏi, đi ga tàu hỏa như thế nào?","zh":"请问，去火车站怎么走？"},{"vi":"Đi thẳng rồi rẽ trái.","zh":"一直往前走，然后左拐。"},{"vi":"Nhà tôi cách công ty rất gần.","zh":"我家离公司很近。"}],"contentStatus":"curated"},{"level":3,"lesson":16,"title":"你想好了没有 (Bạn đã nghĩ kỹ chưa)","vocab":[{"hanzi":"想好","pinyin":"xiǎnghǎo","vi":"nghĩ kỹ; quyết định xong","example":{"hanzi":"你想好了没有？","pinyin":"Nǐ xiǎnghǎo le méiyǒu?","vi":"Bạn đã nghĩ kỹ chưa?"}},{"hanzi":"决定","pinyin":"juédìng","vi":"quyết định","example":{"hanzi":"我还没决定。","pinyin":"Wǒ hái méi juédìng.","vi":"Tôi vẫn chưa quyết định."}},{"hanzi":"选择","pinyin":"xuǎnzé","vi":"lựa chọn","example":{"hanzi":"你可以自己选择。","pinyin":"Nǐ kěyǐ zìjǐ xuǎnzé.","vi":"Bạn có thể tự lựa chọn."}},{"hanzi":"机会","pinyin":"jīhuì","vi":"cơ hội","example":{"hanzi":"这是一个好机会。","pinyin":"Zhè shì yí ge hǎo jīhuì.","vi":"Đây là một cơ hội tốt."}},{"hanzi":"同意","pinyin":"tóngyì","vi":"đồng ý","example":{"hanzi":"我同意你的意见。","pinyin":"Wǒ tóngyì nǐ de yìjiàn.","vi":"Tôi đồng ý với ý kiến của bạn."}},{"hanzi":"意见","pinyin":"yìjiàn","vi":"ý kiến","example":{"hanzi":"你有什么意见？","pinyin":"Nǐ yǒu shénme yìjiàn?","vi":"Bạn có ý kiến gì?"}},{"hanzi":"当然","pinyin":"dāngrán","vi":"đương nhiên","example":{"hanzi":"当然可以试一试。","pinyin":"Dāngrán kěyǐ shì yí shì.","vi":"Đương nhiên có thể thử."}},{"hanzi":"愿意","pinyin":"yuànyì","vi":"sẵn lòng; muốn","example":{"hanzi":"我愿意帮助你。","pinyin":"Wǒ yuànyì bāngzhù nǐ.","vi":"Tôi sẵn lòng giúp bạn."}},{"hanzi":"如果","pinyin":"rúguǒ","vi":"nếu","example":{"hanzi":"如果有时间，我就去。","pinyin":"Rúguǒ yǒu shíjiān, wǒ jiù qù.","vi":"Nếu có thời gian thì tôi sẽ đi."}},{"hanzi":"一定","pinyin":"yídìng","vi":"nhất định","example":{"hanzi":"我一定会来的。","pinyin":"Wǒ yídìng huì lái de.","vi":"Tôi nhất định sẽ đến."}}],"translations":[{"vi":"Bạn đã nghĩ kỹ chưa?","zh":"你想好了没有？"},{"vi":"Nếu có thời gian thì tôi sẽ đi.","zh":"如果有时间，我就去。"},{"vi":"Tôi nhất định sẽ đến.","zh":"我一定会来的。"}],"contentStatus":"curated"},{"level":3,"lesson":17,"title":"我被他影响了 (Tôi bị anh ấy ảnh hưởng)","vocab":[{"hanzi":"影响","pinyin":"yǐngxiǎng","vi":"ảnh hưởng","example":{"hanzi":"这件事影响了我的工作。","pinyin":"Zhè jiàn shì yǐngxiǎng le wǒ de gōngzuò.","vi":"Chuyện này ảnh hưởng đến công việc của tôi."}},{"hanzi":"被","pinyin":"bèi","vi":"bị; được (câu bị động)","example":{"hanzi":"我的手机被弟弟拿走了。","pinyin":"Wǒ de shǒujī bèi dìdi názǒu le.","vi":"Điện thoại của tôi bị em trai mang đi."}},{"hanzi":"同意","pinyin":"tóngyì","vi":"đồng ý","example":{"hanzi":"老师同意了我的想法。","pinyin":"Lǎoshī tóngyì le wǒ de xiǎngfǎ.","vi":"Giáo viên đồng ý với suy nghĩ của tôi."}},{"hanzi":"习惯","pinyin":"xíguàn","vi":"thói quen","example":{"hanzi":"我已经习惯这里的生活了。","pinyin":"Wǒ yǐjīng xíguàn zhèlǐ de shēnghuó le.","vi":"Tôi đã quen với cuộc sống ở đây."}},{"hanzi":"文化","pinyin":"wénhuà","vi":"văn hóa","example":{"hanzi":"我喜欢中国文化。","pinyin":"Wǒ xǐhuan Zhōngguó wénhuà.","vi":"Tôi thích văn hóa Trung Quốc."}},{"hanzi":"相信","pinyin":"xiāngxìn","vi":"tin; tin tưởng","example":{"hanzi":"我相信你。","pinyin":"Wǒ xiāngxìn nǐ.","vi":"Tôi tin bạn."}},{"hanzi":"为了","pinyin":"wèile","vi":"để; vì","example":{"hanzi":"为了考试，我每天复习。","pinyin":"Wèile kǎoshì, wǒ měitiān fùxí.","vi":"Để thi, tôi ôn tập mỗi ngày."}},{"hanzi":"努力","pinyin":"nǔlì","vi":"nỗ lực","example":{"hanzi":"他一直很努力。","pinyin":"Tā yìzhí hěn nǔlì.","vi":"Anh ấy luôn rất nỗ lực."}},{"hanzi":"结果","pinyin":"jiéguǒ","vi":"kết quả","example":{"hanzi":"结果很好。","pinyin":"Jiéguǒ hěn hǎo.","vi":"Kết quả rất tốt."}},{"hanzi":"改变","pinyin":"gǎibiàn","vi":"thay đổi","example":{"hanzi":"这次旅行改变了我。","pinyin":"Zhè cì lǚxíng gǎibiàn le wǒ.","vi":"Chuyến đi này đã thay đổi tôi."}}],"translations":[{"vi":"Tôi bị anh ấy ảnh hưởng rồi.","zh":"我被他影响了。"},{"vi":"Tôi tin bạn.","zh":"我相信你。"},{"vi":"Để thi, tôi ôn tập mỗi ngày.","zh":"为了考试，我每天复习。"}],"contentStatus":"curated"},{"level":3,"lesson":18,"title":"你看起来跟以前不一样了 (Bạn trông khác trước)","vocab":[{"hanzi":"看起来","pinyin":"kànqǐlái","vi":"trông có vẻ","example":{"hanzi":"你看起来很高兴。","pinyin":"Nǐ kànqǐlái hěn gāoxìng.","vi":"Bạn trông có vẻ rất vui."}},{"hanzi":"以前","pinyin":"yǐqián","vi":"trước đây","example":{"hanzi":"你跟以前不一样了。","pinyin":"Nǐ gēn yǐqián bù yíyàng le.","vi":"Bạn khác trước rồi."}},{"hanzi":"变化","pinyin":"biànhuà","vi":"thay đổi; sự thay đổi","example":{"hanzi":"这几年变化很大。","pinyin":"Zhè jǐ nián biànhuà hěn dà.","vi":"Mấy năm nay thay đổi rất nhiều."}},{"hanzi":"年轻","pinyin":"niánqīng","vi":"trẻ tuổi","example":{"hanzi":"她看起来很年轻。","pinyin":"Tā kànqǐlái hěn niánqīng.","vi":"Cô ấy trông rất trẻ."}},{"hanzi":"头发","pinyin":"tóufa","vi":"tóc","example":{"hanzi":"你的头发很漂亮。","pinyin":"Nǐ de tóufa hěn piàoliang.","vi":"Tóc bạn rất đẹp."}},{"hanzi":"长","pinyin":"zhǎng","vi":"mọc; lớn lên","example":{"hanzi":"孩子长高了。","pinyin":"Háizi zhǎng gāo le.","vi":"Đứa trẻ đã cao lên."}},{"hanzi":"终于","pinyin":"zhōngyú","vi":"cuối cùng","example":{"hanzi":"我终于找到你了。","pinyin":"Wǒ zhōngyú zhǎodào nǐ le.","vi":"Cuối cùng tôi cũng tìm thấy bạn."}},{"hanzi":"有名","pinyin":"yǒumíng","vi":"nổi tiếng","example":{"hanzi":"这位老师很有名。","pinyin":"Zhè wèi lǎoshī hěn yǒumíng.","vi":"Thầy giáo này rất nổi tiếng."}},{"hanzi":"认真","pinyin":"rènzhēn","vi":"nghiêm túc","example":{"hanzi":"他做事很认真。","pinyin":"Tā zuòshì hěn rènzhēn.","vi":"Anh ấy làm việc rất nghiêm túc."}},{"hanzi":"同意","pinyin":"tóngyì","vi":"đồng ý","example":{"hanzi":"大家都同意这个办法。","pinyin":"Dàjiā dōu tóngyì zhège bànfǎ.","vi":"Mọi người đều đồng ý cách này."}}],"translations":[{"vi":"Bạn trông khác trước rồi.","zh":"你看起来跟以前不一样了。"},{"vi":"Mấy năm nay thay đổi rất nhiều.","zh":"这几年变化很大。"},{"vi":"Cô ấy trông rất trẻ.","zh":"她看起来很年轻。"}],"contentStatus":"curated"},{"level":3,"lesson":19,"title":"你没看见我把手机放在哪儿了吗 (Bạn không thấy tôi để điện thoại ở đâu à)","vocab":[{"hanzi":"看见","pinyin":"kànjiàn","vi":"nhìn thấy","example":{"hanzi":"你看见我的手机了吗？","pinyin":"Nǐ kànjiàn wǒ de shǒujī le ma?","vi":"Bạn có nhìn thấy điện thoại của tôi không?"}},{"hanzi":"手机","pinyin":"shǒujī","vi":"điện thoại di động","example":{"hanzi":"我的手机在哪儿？","pinyin":"Wǒ de shǒujī zài nǎr?","vi":"Điện thoại của tôi ở đâu?"}},{"hanzi":"放","pinyin":"fàng","vi":"đặt; để","example":{"hanzi":"我把手机放在桌子上了。","pinyin":"Wǒ bǎ shǒujī fàng zài zhuōzi shàng le.","vi":"Tôi đã để điện thoại trên bàn."}},{"hanzi":"地方","pinyin":"dìfang","vi":"chỗ; nơi","example":{"hanzi":"我忘了放在哪个地方。","pinyin":"Wǒ wàng le fàng zài nǎge dìfang.","vi":"Tôi quên mất đã để ở chỗ nào."}},{"hanzi":"记得","pinyin":"jìde","vi":"nhớ","example":{"hanzi":"你还记得吗？","pinyin":"Nǐ hái jìde ma?","vi":"Bạn còn nhớ không?"}},{"hanzi":"可能","pinyin":"kěnéng","vi":"có thể; có lẽ","example":{"hanzi":"它可能在房间里。","pinyin":"Tā kěnéng zài fángjiān lǐ.","vi":"Có lẽ nó ở trong phòng."}},{"hanzi":"找到","pinyin":"zhǎodào","vi":"tìm thấy","example":{"hanzi":"我找到钥匙了。","pinyin":"Wǒ zhǎodào yàoshi le.","vi":"Tôi tìm thấy chìa khóa rồi."}},{"hanzi":"着急","pinyin":"zháojí","vi":"lo lắng","example":{"hanzi":"别着急，我们一起找。","pinyin":"Bié zháojí, wǒmen yìqǐ zhǎo.","vi":"Đừng lo, chúng ta cùng tìm."}},{"hanzi":"桌子","pinyin":"zhuōzi","vi":"cái bàn","example":{"hanzi":"桌子下面有一个包。","pinyin":"Zhuōzi xiàmiàn yǒu yí ge bāo.","vi":"Dưới bàn có một chiếc túi."}},{"hanzi":"忘记","pinyin":"wàngjì","vi":"quên","example":{"hanzi":"我忘记带手机了。","pinyin":"Wǒ wàngjì dài shǒujī le.","vi":"Tôi quên mang điện thoại rồi."}}],"translations":[{"vi":"Bạn có thấy điện thoại của tôi không?","zh":"你看见我的手机了吗？"},{"vi":"Tôi đã để điện thoại trên bàn.","zh":"我把手机放在桌子上了。"},{"vi":"Đừng lo, chúng ta cùng tìm.","zh":"别着急，我们一起找。"}],"contentStatus":"curated"},{"level":3,"lesson":20,"title":"祝你生日快乐 (Chúc bạn sinh nhật vui vẻ)","vocab":[{"hanzi":"生日","pinyin":"shēngrì","vi":"sinh nhật","example":{"hanzi":"今天是我的生日。","pinyin":"Jīntiān shì wǒ de shēngrì.","vi":"Hôm nay là sinh nhật tôi."}},{"hanzi":"快乐","pinyin":"kuàilè","vi":"vui vẻ","example":{"hanzi":"祝你生日快乐！","pinyin":"Zhù nǐ shēngrì kuàilè!","vi":"Chúc bạn sinh nhật vui vẻ!"}},{"hanzi":"礼物","pinyin":"lǐwù","vi":"quà tặng","example":{"hanzi":"这是送给你的礼物。","pinyin":"Zhè shì sòng gěi nǐ de lǐwù.","vi":"Đây là món quà tặng bạn."}},{"hanzi":"送","pinyin":"sòng","vi":"tặng; đưa tiễn","example":{"hanzi":"我送你一本书。","pinyin":"Wǒ sòng nǐ yì běn shū.","vi":"Tôi tặng bạn một quyển sách."}},{"hanzi":"祝","pinyin":"zhù","vi":"chúc","example":{"hanzi":"祝你身体健康。","pinyin":"Zhù nǐ shēntǐ jiànkāng.","vi":"Chúc bạn sức khỏe dồi dào."}},{"hanzi":"蛋糕","pinyin":"dàngāo","vi":"bánh kem","example":{"hanzi":"我们一起吃蛋糕吧。","pinyin":"Wǒmen yìqǐ chī dàngāo ba.","vi":"Chúng ta cùng ăn bánh kem nhé."}},{"hanzi":"生日聚会","pinyin":"shēngrì jùhuì","vi":"tiệc sinh nhật","example":{"hanzi":"晚上有生日聚会。","pinyin":"Wǎnshang yǒu shēngrì jùhuì.","vi":"Buổi tối có tiệc sinh nhật."}},{"hanzi":"记得","pinyin":"jìde","vi":"nhớ","example":{"hanzi":"记得给她打电话。","pinyin":"Jìde gěi tā dǎ diànhuà.","vi":"Nhớ gọi điện cho cô ấy."}},{"hanzi":"信用卡","pinyin":"xìnyòngkǎ","vi":"thẻ tín dụng","example":{"hanzi":"我用信用卡付钱。","pinyin":"Wǒ yòng xìnyòngkǎ fù qián.","vi":"Tôi dùng thẻ tín dụng thanh toán."}},{"hanzi":"最后","pinyin":"zuìhòu","vi":"cuối cùng","example":{"hanzi":"最后，大家一起唱歌。","pinyin":"Zuìhòu, dàjiā yìqǐ chànggē.","vi":"Cuối cùng, mọi người cùng hát."}}],"translations":[{"vi":"Chúc bạn sinh nhật vui vẻ!","zh":"祝你生日快乐！"},{"vi":"Đây là món quà tặng bạn.","zh":"这是送给你的礼物。"},{"vi":"Chúng ta cùng ăn bánh kem nhé.","zh":"我们一起吃蛋糕吧。"}],"contentStatus":"curated"}];
+        let appData = INITIAL_DATA.concat(HSK3_SAMPLE);
         const app = document.getElementById('app');
         const navList = document.getElementById('nav-list');
+        const levelSelect = document.getElementById('level-select');
+        function switchLevel(nextLevel) {
+            selectedLevel = Number(nextLevel);
+            levelSelect.value = String(selectedLevel);
+            document.querySelectorAll('.level-choice').forEach(button => {
+                const active = Number(button.dataset.level) === selectedLevel;
+                button.classList.toggle('active', active);
+                button.setAttribute('aria-pressed', active ? 'true' : 'false');
+            });
+            document.getElementById('page-title').textContent = selectedLevel === 2 ? 'HSK 2 TỔNG HỢP & BÀI TẬP DỊCH' : 'HSK 3 TỔNG HỢP & BÀI TẬP DỊCH';
+            const statusNote = document.getElementById('content-status-note');
+            if (statusNote) statusNote.style.display = selectedLevel === 3 ? 'block' : 'none';
+            const search = document.getElementById('search-input');
+            if (search) search.value = '';
+            const clearBtn = document.getElementById('clear-search-btn');
+            if (clearBtn) clearBtn.style.display = 'none';
+            isSearching = false;
+            renderApp();
+        }
+        levelSelect.addEventListener('change', () => switchLevel(levelSelect.value));
+        document.querySelectorAll('.level-choice').forEach(button => button.addEventListener('click', () => switchLevel(button.dataset.level)));
+        function findLesson(level, lessonNum) {
+            return appData.find(l => Number(l.level || 2) === Number(level) && l.lesson === Number(lessonNum));
+        }
 
         async function loadFromCloud() {
+            const testLocal = localStorage.getItem('hsk_level_test_v1');
+            if (testLocal) {
+                try { appData = JSON.parse(testLocal).map(l => ({...l, level: Number(l.level || 2)})); }
+                catch(e) { appData = INITIAL_DATA.concat(HSK3_SAMPLE); }
+                renderApp();
+                return;
+            }
             if (SCRIPT_URL === 'YOUR_GOOGLE_SHEETS_WEB_APP_URL_HERE') {
                 // Nếu chưa có link Google Sheets, xài tạm LocalStorage
                 let localData = JSON.parse(localStorage.getItem('hsk2Data_v18'));
-                if (localData) appData = localData;
+                if (localData) appData = localData.map(l => ({...l, level: Number(l.level || 2)}));
                 renderApp();
             } else {
                 try {
@@ -678,30 +733,29 @@
                     const cloudData = await res.json();
                     
                     if (cloudData && cloudData.length > 0) {
-                        appData = cloudData;
+                        appData = cloudData.map(l => ({...l, level: Number(l.level || 2)}));
                     }
+                    if (!appData.some(l => Number(l.level) === 3)) appData = appData.concat(HSK3_SAMPLE);
                 } catch(e) {
                     console.error("Lỗi tải từ Google Sheets:", e);
                     let localData = JSON.parse(localStorage.getItem('hsk2Data_v18'));
-                    if (localData) appData = localData;
+                    if (localData) appData = localData.map(l => ({...l, level: Number(l.level || 2)}));
                 }
                 renderApp();
             }
         }
 
         function saveToCloud() {
-            // Backup local
+            // Chỉ lưu cục bộ trong bản thử nghiệm; tuyệt đối không POST lên Google Sheets.
+            localStorage.setItem('hsk_level_test_v1', JSON.stringify(appData));
+            if (TEST_MODE) return;
             localStorage.setItem('hsk2Data_v18', JSON.stringify(appData));
-            
-            // Gửi lên Google Sheets
             if (SCRIPT_URL !== 'YOUR_GOOGLE_SHEETS_WEB_APP_URL_HERE') {
                 try {
                     const formData = new URLSearchParams();
                     formData.append('data', JSON.stringify(appData));
                     fetch(SCRIPT_URL, { method: 'POST', body: formData, mode: 'no-cors' });
-                } catch(e) {
-                    console.error("Lỗi lưu lên cloud:", e);
-                }
+                } catch(e) { console.error("Lỗi lưu lên cloud:", e); }
             }
         }
 
@@ -719,11 +773,11 @@
             selectVocab.innerHTML = '';
             selectTrans.innerHTML = '';
 
-            appData.forEach(lesson => {
+            appData.filter(lesson => Number(lesson.level || 2) === selectedLevel).forEach(lesson => {
                 // Navigation link
                 const li = document.createElement('li');
                 const a = document.createElement('a');
-                a.href = `#lesson-${lesson.lesson}`;
+                a.href = `#lesson-${lesson.level || 2}-${lesson.lesson}`;
                 a.textContent = `Bài ${lesson.lesson}`;
                 li.appendChild(a);
                 navList.appendChild(li);
@@ -736,7 +790,7 @@
                 // Lesson Container
                 const lessonDiv = document.createElement('div');
                 lessonDiv.className = 'lesson-container';
-                lessonDiv.id = `lesson-${lesson.lesson}`;
+                lessonDiv.id = `lesson-${lesson.level || 2}-${lesson.lesson}`;
                 
                 lessonDiv.innerHTML = `<h2 class="lesson-title">Bài ${lesson.lesson}: ${lesson.title}</h2>`;
                 
@@ -760,7 +814,7 @@
                         
                         vocabHtml += `
                             <div class="card" onclick="openStrokeModal('${word.hanzi}')" title="Click để xem cách viết">
-                                <span class="btn-delete" title="Xóa từ này" onclick="deleteVocab(event, ${lesson.lesson}, ${index})">🗑️</span>
+                                <span class="btn-delete" title="Xóa từ này" onclick="deleteVocab(event, ${lesson.lesson}, ${index}, ${lesson.level || 2})">🗑️</span>
                                 <div class="hanzi-row">
                                     <div class="hanzi">${word.hanzi}</div>
                                     <span class="speaker-icon" onclick="event.stopPropagation(); speak('${word.hanzi}')" title="Nghe phát âm">🔊</span>
@@ -784,15 +838,15 @@
                     `;
                     
                     lesson.translations.forEach((item, index) => {
-                        const inputId = `input-L${lesson.lesson}-T${index}`;
-                        const resId = `res-L${lesson.lesson}-T${index}`;
+                        const inputId = `input-H${lesson.level || 2}-L${lesson.lesson}-T${index}`;
+                        const resId = `res-H${lesson.level || 2}-L${lesson.lesson}-T${index}`;
                         const cleanZh = item.zh.replace(/[.,!?，。！？]/g, "").trim();
                         
                         transHtml += `
                             <div class="translation-item">
                                 <div class="trans-actions">
-                                    <span class="btn-edit" title="Sửa câu này" onclick="editTranslation(${lesson.lesson}, ${index})">✏️</span>
-                                    <span class="btn-del" title="Xóa câu này" onclick="deleteTranslation(${lesson.lesson}, ${index})">🗑️</span>
+                                    <span class="btn-edit" title="Sửa câu này" onclick="editTranslation(${lesson.lesson}, ${index}, ${lesson.level || 2})">✏️</span>
+                                    <span class="btn-del" title="Xóa câu này" onclick="deleteTranslation(${lesson.lesson}, ${index}, ${lesson.level || 2})">🗑️</span>
                                 </div>
                                 <div class="trans-vi">${index + 1}. ${item.vi}</div>
                                 <div class="input-group">
@@ -874,7 +928,7 @@
             
             if(!hanzi || !vi) { alert('Vui lòng nhập Hán tự và Nghĩa tiếng Việt!'); return; }
             
-            const targetLesson = appData.find(l => l.lesson === lessonNum);
+            const targetLesson = findLesson(selectedLevel, lessonNum);
             if(targetLesson) {
                 if(!targetLesson.vocab) targetLesson.vocab = [];
                 targetLesson.vocab.push({ hanzi: hanzi, pinyin: pinyin, vi: vi });
@@ -889,7 +943,7 @@
                 document.getElementById('vocab-pinyin').value = '';
                 document.getElementById('vocab-vi').value = '';
                 
-                document.getElementById(`lesson-${lessonNum}`).scrollIntoView({behavior: "smooth"});
+                document.getElementById(`lesson-${selectedLevel}-${lessonNum}`)?.scrollIntoView({behavior: "smooth"});
             }
         }
 
@@ -900,7 +954,7 @@
             
             if(!vi || !zh) { alert('Vui lòng nhập câu tiếng Việt và câu tiếng Trung!'); return; }
             
-            const targetLesson = appData.find(l => l.lesson === lessonNum);
+            const targetLesson = findLesson(selectedLevel, lessonNum);
             if(targetLesson) {
                 if(!targetLesson.translations) { targetLesson.translations = []; }
                 targetLesson.translations.push({ vi: vi, zh: zh });
@@ -915,13 +969,13 @@
                 document.getElementById('trans-vi').value = '';
                 document.getElementById('trans-zh').value = '';
                 
-                document.getElementById(`lesson-${lessonNum}`).scrollIntoView({behavior: "smooth"});
+                document.getElementById(`lesson-${selectedLevel}-${lessonNum}`)?.scrollIntoView({behavior: "smooth"});
             }
         }
         
         function resetData() {
             if(confirm("Bạn có chắc muốn xóa các dữ liệu đã thêm và khôi phục về trạng thái gốc không?")) {
-                appData = INITIAL_DATA;
+                appData = INITIAL_DATA.concat(HSK3_SAMPLE);
                 saveToCloud();
                 if(document.getElementById('search-input')) document.getElementById('search-input').value = '';
                 if(document.getElementById('clear-search-btn')) document.getElementById('clear-search-btn').style.display = 'none';
@@ -1153,8 +1207,8 @@
             }
         }
 
-        function editTranslation(lessonNum, index) {
-            const targetLesson = appData.find(l => l.lesson === lessonNum);
+        function editTranslation(lessonNum, index, level = selectedLevel) {
+            const targetLesson = findLesson(level, lessonNum);
             if(targetLesson && targetLesson.translations) {
                 const trans = targetLesson.translations[index];
                 const newVi = prompt("Sửa câu tiếng Việt:", trans.vi);
@@ -1177,9 +1231,9 @@
             }
         }
 
-        function deleteTranslation(lessonNum, index) {
+        function deleteTranslation(lessonNum, index, level = selectedLevel) {
             if(confirm("Bạn có chắc chắn muốn xóa câu dịch này không?")) {
-                const targetLesson = appData.find(l => l.lesson === lessonNum);
+                const targetLesson = findLesson(level, lessonNum);
                 if(targetLesson && targetLesson.translations) {
                     targetLesson.translations.splice(index, 1);
                     saveToCloud();
@@ -1211,10 +1265,10 @@
         });
 
 
-        function deleteVocab(event, lessonNum, index) {
+        function deleteVocab(event, lessonNum, index, level = selectedLevel) {
             event.stopPropagation(); // Ngăn sự kiện click vào card (mở modal vẽ chữ)
             if(confirm("Bạn có chắc chắn muốn xóa từ vựng này không?")) {
-                const targetLesson = appData.find(l => l.lesson === lessonNum);
+                const targetLesson = findLesson(level, lessonNum);
                 if(targetLesson && targetLesson.vocab) {
                     targetLesson.vocab.splice(index, 1);
                     saveToCloud();
@@ -1338,7 +1392,7 @@
                         }
                         
                         if (matchHanzi || matchPinyin || matchVi || matchEx) {
-                            foundVocabs.push({ word, lessonNum: lesson.lesson, originalIndex: vIndex });
+                            foundVocabs.push({ word, lessonNum: lesson.lesson, level: Number(lesson.level || 2), originalIndex: vIndex });
                         }
                     });
                 }
@@ -1348,7 +1402,7 @@
                         const matchVi = trans.vi && trans.vi.toLowerCase().includes(query);
                         const matchZh = trans.zh && trans.zh.toLowerCase().includes(query);
                         if (matchVi || matchZh) {
-                            foundTrans.push({ trans, lessonNum: lesson.lesson, originalIndex: tIndex });
+                            foundTrans.push({ trans, lessonNum: lesson.lesson, level: Number(lesson.level || 2), originalIndex: tIndex });
                         }
                     });
                 }
@@ -1379,14 +1433,14 @@
                     }
                     vocabHtml += `
                         <div class="card" onclick="openStrokeModal('${word.hanzi}')" title="Click để xem cách viết">
-                            <span class="btn-delete" title="Xóa từ này" onclick="deleteVocab(event, ${item.lessonNum}, ${item.originalIndex})">🗑️</span>
+                            <span class="btn-delete" title="Xóa từ này" onclick="deleteVocab(event, ${item.lessonNum}, ${item.originalIndex}, ${item.level})">🗑️</span>
                             <div class="hanzi-row">
                                 <div class="hanzi">${word.hanzi}</div>
                                 <span class="speaker-icon" onclick="event.stopPropagation(); speak('${word.hanzi}')" title="Nghe phát âm">🔊</span>
                             </div>
                             <div class="pinyin">${word.pinyin || ''}</div>
                             <div class="meaning">${word.vi}</div>
-                            <div style="font-size:0.8rem; color:var(--accent-color); margin-top:8px; font-weight:bold;">(Thuộc Bài ${item.lessonNum})</div>
+                            <div style="font-size:0.8rem; color:var(--accent-color); margin-top:8px; font-weight:bold;">(HSK ${item.level} · Bài ${item.lessonNum})</div>
                             ${exampleHtml}
                         </div>
                     `;
@@ -1402,17 +1456,17 @@
                 `;
                 foundTrans.forEach(item => {
                     const trans = item.trans;
-                    const inputId = `search-input-L${item.lessonNum}-T${item.originalIndex}`;
-                    const resId = `search-res-L${item.lessonNum}-T${item.originalIndex}`;
+                    const inputId = `search-input-H${item.level}-L${item.lessonNum}-T${item.originalIndex}`;
+                    const resId = `search-res-H${item.level}-L${item.lessonNum}-T${item.originalIndex}`;
                     const cleanZh = trans.zh.replace(/[.,!?，。！？]/g, "").trim();
                     
                     transHtml += `
                         <div class="translation-item">
                             <div class="trans-actions">
-                                <span class="btn-edit" title="Sửa câu này" onclick="editTranslation(${item.lessonNum}, ${item.originalIndex})">✏️</span>
-                                <span class="btn-del" title="Xóa câu này" onclick="deleteTranslation(${item.lessonNum}, ${item.originalIndex})">🗑️</span>
+                                <span class="btn-edit" title="Sửa câu này" onclick="editTranslation(${item.lessonNum}, ${item.originalIndex}, ${item.level})">✏️</span>
+                                <span class="btn-del" title="Xóa câu này" onclick="deleteTranslation(${item.lessonNum}, ${item.originalIndex}, ${item.level})">🗑️</span>
                             </div>
-                            <div style="font-size:0.85rem; color:var(--accent-color); margin-bottom:5px; font-weight:bold;">(Thuộc Bài ${item.lessonNum})</div>
+                            <div style="font-size:0.85rem; color:var(--accent-color); margin-bottom:5px; font-weight:bold;">(HSK ${item.level} · Bài ${item.lessonNum})</div>
                             <div class="trans-vi">${trans.vi}</div>
                             <div class="input-group">
                                 <textarea id="${inputId}" class="trans-textarea" placeholder="Nhập câu tiếng Trung của bạn (Hán tự)..."></textarea>
