@@ -740,7 +740,7 @@
                     if (level === 3 && lessonNum >= 1 && lessonNum <= 4 && preferBundledFirstFour && baseByKey.has(key)) {
                         // Bài 1–4 HSK3 đã được khôi phục từ bản backup localStorage.
                         // Không để dữ liệu cloud cũ/thiếu ghi đè bản khôi phục này.
-                        continue;
+                        return;
                     }
                     if (level === 3 && lessonNum >= 5 && lessonNum <= 20 && baseByKey.has(key)) {
                         // Lesson 5–20 use the uploaded lesson files as canonical vocabulary.
