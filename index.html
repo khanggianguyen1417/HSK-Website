@@ -688,6 +688,7 @@
         let adminIdToken = sessionStorage.getItem('hsk_admin_id_token') || '';
         let cloudSyncReady = false;
         let cloudSyncSchemaReady = false;
+        let cloudSyncSource = '';
         let cloudSyncQueue = Promise.resolve();
         let cloudSyncRevision = 0;
         let selectedLevel = 2;
@@ -917,8 +918,12 @@
                     const verifyResponse = await fetch(getSchemaUrl(), {cache: 'no-store'});
                     if (!verifyResponse.ok) throw new Error("Không đọc lại được dữ liệu sau khi ghi.");
                     const envelope = await verifyResponse.json();
-                    if (envelope.schemaVersion !== 2 || !Array.isArray(envelope.data)) {
-                        throw new Error("Google Apps Script chưa được cập nhật sang schema v2.");
+                    if (envelope.schemaVersion !== 2 || !Array.isArray(envelope.data) || envelope.error) {
+                        throw new Error("Google Apps Script chưa sẵn sàng hoặc không đọc được schema v2.");
+                    }
+                    if (envelope.source !== 'v2') {
+                        lastError = new Error("Dữ liệu vẫn đang được đọc từ vùng cũ; lần ghi mới chưa được xác nhận ở tab HSK_Data_v2.");
+                        continue;
                     }
                     if (dataSnapshotContains(expected, envelope.data)) return true;
                     lastError = new Error("Google Sheets chưa xác nhận đủ dữ liệu vừa gửi.");
@@ -981,8 +986,9 @@
                 const response = await fetch(getSchemaUrl(), {cache: 'no-store'});
                 if (!response.ok) throw new Error("HTTP " + response.status);
                 const envelope = await response.json();
-                if (envelope && envelope.schemaVersion === 2 && Array.isArray(envelope.data)) {
+                if (envelope && envelope.schemaVersion === 2 && !envelope.error && Array.isArray(envelope.data)) {
                     cloudData = envelope.data;
+                    cloudSource = String(envelope.source || '');
                     schemaReady = true;
                     cloudReadSucceeded = true;
                 } else {
@@ -1021,7 +1027,7 @@
 
             if (schemaReady) {
                 setSyncStatus("Đã tải dữ liệu từ Google Sheets. Đăng nhập để thêm/sửa và đồng bộ.", "success");
-                if (adminIdToken && (hasLocalPending || !cloudData.length)) saveToCloud();
+                if (adminIdToken && (hasLocalPending || !cloudData.length || cloudSource === 'legacy')) saveToCloud();
             } else if (cloudReadSucceeded) {
                 setSyncStatus("Đã tải dữ liệu cloud cũ. Cần cập nhật Apps Script để bật đồng bộ an toàn.", "pending");
             } else {
