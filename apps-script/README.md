@@ -21,6 +21,12 @@ The website's complete seed dataset is about 80 KB of JSON, so it must not be st
 - A previous v2 snapshot is copied into `HSK_Data_v2_backup` before every replacement.
 - Learners can read the public vocabulary data; only the allowlisted admin account can write.
 
+## Troubleshoot a failed first write
+
+The schema response includes a safe `syncDiagnostic` object. It records only the last write status, phase, a short error message, lesson count, and timestamp. It never records the Google ID token or the submitted vocabulary data.
+
+After replacing/deploying this backend version, open `/exec?schema=2` and inspect `syncDiagnostic`. If a POST is rejected, the phase and error message identify whether it failed at schema validation, Google token verification, payload parsing, spreadsheet access, or writing the v2 tab.
+
 ## Test before merging the website branch
 
 1. Open the Vercel Preview for branch `feat/google-sheets-auto-sync`.
