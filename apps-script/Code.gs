@@ -34,7 +34,8 @@ function doGet(e) {
         schemaVersion: SCHEMA_VERSION,
         data: result.lessons,
         source: result.source,
-        updatedAt: result.updatedAt || null
+        updatedAt: result.updatedAt || null,
+        syncDiagnostic: readSyncDiagnostic_()
       });
     }
 
@@ -50,14 +51,19 @@ function doGet(e) {
 
 function doPost(e) {
   const lock = LockService.getScriptLock();
+  let phase = 'received';
+  let lessonCount = null;
+  recordSyncDiagnostic_('received', 'POST reached Apps Script.', null);
 
   try {
     if (!e || !e.parameter || String(e.parameter.schema || '') !== '2') {
       throw new Error('Unsupported schema.');
     }
 
+    phase = 'validating_google_token';
     const auth = verifyAdminToken_(String(e.parameter.idToken || ''));
     if (!auth.ok) throw new Error(auth.error || 'Unauthorized.');
+    phase = 'google_token_verified';
 
     const rawData = String(e.parameter.data || '');
     if (!rawData) throw new Error('Missing data.');
@@ -66,6 +72,8 @@ function doPost(e) {
     if (!Array.isArray(parsed) || parsed.length < 1 || parsed.length > MAX_LESSONS) {
       throw new Error('Invalid lesson array.');
     }
+    lessonCount = parsed.length;
+    phase = 'payload_validated';
 
     const timestamp = new Date();
     const rows = [['level', 'lesson', 'title', 'payload_json', 'updated_at']];
@@ -93,7 +101,9 @@ function doPost(e) {
 
     lock.waitLock(30000);
     try {
+      phase = 'opening_spreadsheet';
       const spreadsheet = getSpreadsheet_();
+      phase = 'spreadsheet_opened';
       let dataSheet = spreadsheet.getSheetByName(DATA_SHEET_NAME);
       if (!dataSheet) dataSheet = spreadsheet.insertSheet(DATA_SHEET_NAME);
 
@@ -112,17 +122,21 @@ function doPost(e) {
       dataSheet.getRange(1, 1, rows.length, rows[0].length).setValues(rows);
       dataSheet.setFrozenRows(1);
       SpreadsheetApp.flush();
+      phase = 'sheet_written';
     } finally {
       lock.releaseLock();
     }
 
+    recordSyncDiagnostic_('success', 'Snapshot written to HSK_Data_v2.', lessonCount);
     return jsonOutput_({
       ok: true,
       schemaVersion: SCHEMA_VERSION,
+      source: 'v2',
       lessonCount: parsed.length,
       updatedAt: timestamp.toISOString()
     });
   } catch (error) {
+    recordSyncDiagnostic_('error', String(error && error.message || error), lessonCount, phase);
     try {
       if (lock.hasLock()) lock.releaseLock();
     } catch (ignored) {}
@@ -132,6 +146,38 @@ function doPost(e) {
       schemaVersion: SCHEMA_VERSION,
       error: String(error && error.message || error)
     });
+  }
+}
+
+
+/**
+ * Store safe, non-secret diagnostics for the most recent write attempt.
+ * Never store ID tokens, request bodies, or vocabulary content here.
+ */
+function recordSyncDiagnostic_(status, message, lessonCount, phase) {
+  try {
+    const diagnostic = {
+      status: String(status || 'unknown'),
+      message: String(message || '').slice(0, 400),
+      phase: String(phase || (status === 'success' ? 'complete' : status || 'unknown')),
+      lessonCount: Number.isFinite(Number(lessonCount)) ? Number(lessonCount) : null,
+      timestamp: new Date().toISOString()
+    };
+    PropertiesService.getScriptProperties().setProperty(
+      'HSK_SYNC_DIAGNOSTIC',
+      JSON.stringify(diagnostic)
+    );
+  } catch (ignored) {
+    // Diagnostics must never interrupt a data read or write.
+  }
+}
+
+function readSyncDiagnostic_() {
+  try {
+    const raw = PropertiesService.getScriptProperties().getProperty('HSK_SYNC_DIAGNOSTIC');
+    return raw ? JSON.parse(raw) : null;
+  } catch (ignored) {
+    return null;
   }
 }
 
