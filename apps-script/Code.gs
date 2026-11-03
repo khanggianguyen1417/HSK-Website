@@ -212,7 +212,9 @@ function findLegacyA1Data_(spreadsheet) {
 
     try {
       const parsed = JSON.parse(trimmed);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed) && parsed.some(function (item) {
+        return item && typeof item === 'object' && Array.isArray(item.vocab) && Number.isInteger(Number(item.lesson));
+      })) return parsed;
     } catch (error) {
       // Not a legacy JSON payload; try the next sheet.
     }
