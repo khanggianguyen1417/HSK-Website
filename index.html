@@ -1703,8 +1703,8 @@
                                     <span>${word.example.hanzi}</span>
                                     <span class="speaker-icon" onclick="event.stopPropagation(); speak('${word.example.hanzi}')">🔊</span>
                                 </div>
-                                <div class="ex-pinyin">${word.example.pinyin}</div>
-                                <div class="ex-meaning">${word.example.vi}</div>
+                                ${word.example.pinyin ? `<div class="ex-pinyin">${word.example.pinyin}</div>` : ''}
+                                ${word.example.vi ? `<div class="ex-meaning">${word.example.vi}</div>` : ''}
                             </div>
                         `;
                     }
